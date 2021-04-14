@@ -39,6 +39,10 @@ find_package(Boost REQUIRED COMPONENTS ${BOOST_COMPONENTS})
 find_package(Ceres REQUIRED COMPONENTS SuiteSparse)
 find_package(Eigen3 REQUIRED)
 find_package(LuaGoogle REQUIRED)
+find_package(PCL REQUIRED)
+include_directories(
+  	${PCL_INCLUDE_DIRS}
+)
 if(WIN32)
   # On Windows, Protobuf is incorrectly found by the bundled CMake module, so prefer native CMake config.
   set(protobuf_MODULE_COMPATIBLE TRUE CACHE INTERNAL "")
@@ -226,6 +230,7 @@ endif()
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
   "${EIGEN3_INCLUDE_DIR}")
+  
 target_link_libraries(${PROJECT_NAME} PUBLIC ${EIGEN3_LIBRARIES})
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
@@ -238,8 +243,9 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${LUA_LIBRARIES})
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
   "${Boost_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
 
+target_link_libraries(${PROJECT_NAME} PUBLIC ${PCL_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
 if (WIN32)
   find_package(glog REQUIRED)
   set(GLOG_LIBRARY glog::glog)
@@ -247,7 +253,7 @@ else()
   set(GLOG_LIBRARY glog)
 endif()
 
-target_link_libraries(${PROJECT_NAME} PUBLIC ${GLOG_LIBRARY})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${GLOG_LIBRARY}    )
 target_link_libraries(${PROJECT_NAME} PUBLIC gflags)
 if(WIN32)
   # Needed to fix conflict with MSVC's error macro.

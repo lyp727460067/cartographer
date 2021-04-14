@@ -35,7 +35,7 @@
 #include "cartographer/sensor/internal/voxel_filter.h"
 #include "cartographer/transform/transform.h"
 #include "glog/logging.h"
-
+#include "pcl/kdtree/kdtree_flann.h"
 namespace cartographer {
 namespace mapping {
 
@@ -304,6 +304,15 @@ void PoseGraph3D::ComputeConstraint(const NodeId& node_id,
         global_submap_pose.rotation());
   }
 }
+#include "pcl/point_cloud.h"
+#include "pcl/point_types.h"
+
+using PointType = pcl::PointXYZ;
+PointType Rigid3d2Pcl(const transform::Rigid3d  rigid){
+  return {
+    rigid.translation().x(), rigid.translation().y(), rigid.translation().z()
+  };
+}
 
 WorkItem::Result PoseGraph3D::ComputeConstraintsForNode(
     const NodeId& node_id,
@@ -353,6 +362,8 @@ WorkItem::Result PoseGraph3D::ComputeConstraintsForNode(
         finished_submap_ids.emplace_back(submap_id_data.id);
       }
     }
+ 
+    
     if (newly_finished_submap) {
       const SubmapId newly_finished_submap_id = submap_ids.front();
       InternalSubmapData& finished_submap_data =
@@ -362,6 +373,37 @@ WorkItem::Result PoseGraph3D::ComputeConstraintsForNode(
       newly_finished_submap_node_ids = finished_submap_data.node_ids;
     }
   }
+  
+   //找到当前位姿最近的submap
+
+  const transform::Rigid3d global_node_pose =
+      optimization_problem_->node_data().at(node_id).global_pose;
+  const PointType node_pose_point = Rigid3d2Pcl(global_node_pose);
+  pcl::PointCloud<PointType>::Ptr submaps_pose_point(
+      new pcl::PointCloud<PointType>());
+  std::map<int, SubmapId> inde_with_submap_id;
+  int i = 0;
+  for (const auto& submap_id : finished_submap_ids) {
+    const transform::Rigid3d global_submap_pose =
+        optimization_problem_->submap_data().at(submap_id).global_pose;
+    const PointType submap_pose_point = Rigid3d2Pcl(global_submap_pose);
+    submaps_pose_point->push_back(submap_pose_point);
+    inde_with_submap_id.insert({i, submap_id});
+    i++;
+  }
+  std::vector<SubmapId> finished_closet_submap_ids;
+  pcl::KdTreeFLANN<PointType> kd_tree;
+  kd_tree.setInputCloud(submaps_pose_point);
+  std::vector<int> index(2, -1);
+  std::vector<float> distance(2);
+
+  if (kd_tree.nearestKSearch(node_pose_point, 2, index, distance) == 2) {
+    finished_closet_submap_ids.emplace_back(inde_with_submap_id.at(index[0]));
+    finished_closet_submap_ids.emplace_back(inde_with_submap_id.at(index[1]));
+    finished_submap_ids = finished_closet_submap_ids;
+    std::cout<<"node_id"<<node_id.node_index<<"with submap"<<index[0]<<" "<<index[1]<<std::endl;
+  }
+  //
 
   for (const auto& submap_id : finished_submap_ids) {
     ComputeConstraint(node_id, submap_id);
@@ -371,12 +413,43 @@ WorkItem::Result PoseGraph3D::ComputeConstraintsForNode(
     const SubmapId newly_finished_submap_id = submap_ids.front();
     // We have a new completed submap, so we look into adding constraints for
     // old nodes.
+
+    pcl::PointCloud<PointType>::Ptr nodes_pose_point(
+        new pcl::PointCloud<PointType>());
+    std::map<int, NodeId> index_with_node_id;
+    i = 0;
     for (const auto& node_id_data : optimization_problem_->node_data()) {
-      const NodeId& node_id = node_id_data.id;
       if (newly_finished_submap_node_ids.count(node_id) == 0) {
-        ComputeConstraint(node_id, newly_finished_submap_id);
+        const NodeId& node_id = node_id_data.id;
+        const transform::Rigid3d global_node_pose =
+            node_id_data.data.global_pose;
+        const PointType node_pose_point = Rigid3d2Pcl(global_node_pose);
+        nodes_pose_point->push_back(node_pose_point);
+        index_with_node_id.insert({i,node_id});
+      }
+      i++;
+    }
+    const transform::Rigid3d global_submap_pose =
+        optimization_problem_->submap_data()
+            .at(newly_finished_submap_id)
+            .global_pose;
+
+    if (!nodes_pose_point->points.empty()) {
+      const PointType submap_pose_point = Rigid3d2Pcl(global_submap_pose);
+      kd_tree.setInputCloud(nodes_pose_point);
+      if (kd_tree.nearestKSearch(submap_pose_point, 2, index, distance) == 2) {
+        ComputeConstraint(index_with_node_id.at(index[0]),
+                          newly_finished_submap_id);
+        ComputeConstraint(index_with_node_id.at(index[1]),
+                          newly_finished_submap_id);
       }
     }
+    // for (const auto& node_id_data : optimization_problem_->node_data()) {
+    //   const NodeId& node_id = node_id_data.id;
+    //   if (newly_finished_submap_node_ids.count(node_id) == 0) {
+    //     ComputeConstraint(node_id, newly_finished_submap_id);
+    //   }
+    // }
   }
   constraint_builder_.NotifyEndOfNode();
   absl::MutexLock locker(&mutex_);

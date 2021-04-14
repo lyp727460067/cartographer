@@ -31,6 +31,7 @@ namespace {
 struct PixelData {
   int min_z = INT_MAX;
   int max_z = INT_MIN;
+
   int count = 0;
   float probability_sum = 0.f;
   float max_probability = 0.5f;
@@ -60,16 +61,21 @@ std::vector<PixelData> AccumulatePixelData(
       // Out of bounds. This could happen because of floating point inaccuracy.
       continue;
     }
-    const int x = max_index.x() - pixel_index[0];
-    const int y = max_index.y() - pixel_index[1];
-    PixelData& pixel = accumulated_pixel_data[x * width + y];
-    ++pixel.count;
-    pixel.min_z = std::min(pixel.min_z, voxel_index_and_probability[2]);
-    pixel.max_z = std::max(pixel.max_z, voxel_index_and_probability[2]);
-    const float probability =
-        ValueToProbability(voxel_index_and_probability[3]);
-    pixel.probability_sum += probability;
-    pixel.max_probability = std::max(pixel.max_probability, probability);
+
+    //if (voxel_index_and_probability[2] >= -1 &&
+     //   voxel_index_and_probability[2] <= 2) {
+      const int x = max_index.x() - pixel_index[0];
+      const int y = max_index.y() - pixel_index[1];
+      PixelData& pixel = accumulated_pixel_data[x * width + y];
+      ++pixel.count;
+      pixel.min_z = std::min(pixel.min_z, voxel_index_and_probability[2]);
+      pixel.max_z = std::max(pixel.max_z, voxel_index_and_probability[2]);
+
+      const float probability =
+          ValueToProbability(voxel_index_and_probability[3]);
+      pixel.probability_sum += probability;
+      pixel.max_probability = std::max(pixel.max_probability, probability);
+   // }
   }
   return accumulated_pixel_data;
 }
@@ -100,7 +106,7 @@ std::vector<Eigen::Array4i> ExtractVoxelData(
         common::RoundToInt(cell_center_global.y() * resolution_inverse),
         common::RoundToInt(cell_center_global.z() * resolution_inverse),
         probability_value);
-
+  
     voxel_indices_and_probabilities.push_back(voxel_index_and_probability);
     const Eigen::Array2i pixel_index = voxel_index_and_probability.head<2>();
     *min_index = min_index->cwiseMin(pixel_index);
@@ -127,7 +133,7 @@ std::string ComputePixelValues(
       cell_data.push_back(0);  // alpha
       continue;
     }
-    const float free_space = std::max(z_difference - pixel.count, 0.f);
+    const float free_space = 0;//  std::max(z_difference - pixel.count, 0.f);
     const float free_space_weight = kFreeSpaceWeight * free_space;
     const float total_weight = pixel.count + free_space_weight;
     const float free_space_probability = 1.f - pixel.max_probability;

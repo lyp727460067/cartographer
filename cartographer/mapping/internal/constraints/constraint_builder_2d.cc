@@ -208,6 +208,12 @@ void ConstraintBuilder2D::ComputeConstraint(
   // 1. Fast estimate using the fast correlative scan matcher.
   // 2. Prune if the score is too low.
   // 3. Refine.
+  std::ostringstream info;
+  double test_score = options_.min_score();
+  if (submap_id.submap_index == 0) {
+    test_score = 0.38;
+  }
+
   if (match_full_submap) {
     kGlobalConstraintsSearchedMetric->Increment();
     if (submap_scan_matcher.fast_correlative_scan_matcher->MatchFullSubmap(
@@ -225,12 +231,13 @@ void ConstraintBuilder2D::ComputeConstraint(
     kConstraintsSearchedMetric->Increment();
     if (submap_scan_matcher.fast_correlative_scan_matcher->Match(
             initial_pose, constant_data->filtered_gravity_aligned_point_cloud,
-            options_.min_score(), &score, &pose_estimate)) {
+            test_score, &score, &pose_estimate)) {
       // We've reported a successful local match.
-      CHECK_GT(score, options_.min_score());
+      //CHECK_GT(score, options_.min_score());
       kConstraintsFoundMetric->Increment();
       kConstraintScoresMetric->Observe(score);
     } else {
+
       return;
     }
   }

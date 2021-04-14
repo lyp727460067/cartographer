@@ -58,7 +58,7 @@ void ImuTracker::AddImuLinearAccelerationObservation(
   last_linear_acceleration_time_ = time_;
   const double alpha = 1. - std::exp(-delta_t / imu_gravity_time_constant_);
   gravity_vector_ =
-      (1. - alpha) * gravity_vector_ + alpha * imu_linear_acceleration;
+      (1. - alpha) * gravity_vector_ + alpha * imu_linear_acceleration /imu_linear_acceleration.norm();
   // Change the 'orientation_' so that it agrees with the current
   // 'gravity_vector_'.
   const Eigen::Quaterniond rotation = FromTwoVectors(

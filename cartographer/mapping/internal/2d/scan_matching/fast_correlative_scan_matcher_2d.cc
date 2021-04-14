@@ -258,6 +258,7 @@ bool FastCorrelativeScanMatcher2D::MatchWithSearchParameters(
         initial_rotation * Eigen::Rotation2Dd(best_candidate.orientation));
     return true;
   }
+  *score = best_candidate.score;
   return false;
 }
 
@@ -278,6 +279,7 @@ FastCorrelativeScanMatcher2D::GenerateLowestResolutionCandidates(
     const SearchParameters& search_parameters) const {
   const int linear_step_size = 1 << precomputation_grid_stack_->max_depth();
   int num_candidates = 0;
+  
   for (int scan_index = 0; scan_index != search_parameters.num_scans;
        ++scan_index) {
     const int num_lowest_resolution_linear_x_candidates =
