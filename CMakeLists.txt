@@ -40,6 +40,7 @@ find_package(Ceres REQUIRED COMPONENTS SuiteSparse)
 find_package(Eigen3 REQUIRED)
 find_package(LuaGoogle REQUIRED)
 find_package(PCL REQUIRED)
+
 include_directories(
   	${PCL_INCLUDE_DIRS}
 )
